@@ -6,13 +6,12 @@ train_dataset:
       repeat: 20
       cache: in_memory
   wrapper:
-    name: sr-implicit-downsampled
+    name: sr-implicit-downsampled-fast
     args:
       inp_size: 48
       scale_max: 4
       augment: true
-      sample_q: 2304
-  batch_size: 16
+  batch_size: 32
 
 val_dataset:
   dataset:
@@ -23,41 +22,38 @@ val_dataset:
       repeat: 160
       cache: in_memory
   wrapper:
-    name: sr-implicit-downsampled
+    name: sr-implicit-downsampled-fast
     args:
       inp_size: 48
       scale_max: 4
-      sample_q: 2304
-  batch_size: 16
+  batch_size: 32
 
 data_norm:
   inp: {sub: [0.5], div: [0.5]}
   gt: {sub: [0.5], div: [0.5]}
 
 model:
-  name: lte
+  name: lte-fast
   args:
     encoder_spec:
-      name: rdn
+      name: swinir
       args:
         no_upsampling: true
-    imnet_spec:
-      name: mlp
-      args:
-        out_dim: 3
-        hidden_list: [256, 256, 256]
+    num_layer: 3
     hidden_dim: 256
+    out_dim: 3
+
 
 optimizer:
   name: adam
   args:
-    lr: 1.e-4
+    lr: 2.e-4
 epoch_max: 1000
 multi_step_lr:
-  milestones: [200, 400, 600, 800]
+  milestones: [500, 800, 900, 950]
   gamma: 0.5
 
 epoch_val: 1
 epoch_save: 100
 
-resume: ./save/_train_rdn-lte/epoch-last.pth
+resume: ./save/_train_swinir-lte/epoch-last.pth

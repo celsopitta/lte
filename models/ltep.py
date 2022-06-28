@@ -104,6 +104,56 @@ class LTEP(nn.Module):
         return ret + F.grid_sample(self.inp, coord.flip(-1), mode='bilinear',\
                                 padding_mode='border', align_corners=False)
 
+        #return ret
+
     def forward(self, inp, coord, cell):
         self.gen_feat(inp)
         return self.query_rgb(coord, cell)
+
+
+@register('lte-ae')
+class LTEP_AE(nn.Module):
+
+    def __init__(self, encoder_spec, num_layer=3, hidden_dim=256, out_dim=3):
+        super().__init__()
+        self.encoder = models.make(encoder_spec)
+                
+        # Fourier prediction
+        self.coef = nn.Conv2d(self.encoder.out_dim, hidden_dim, 3, padding=1) # coefficient
+        self.freq = nn.Conv2d(self.encoder.out_dim, hidden_dim, 3, padding=1) # frequency
+        
+                
+        layers = []
+        for i in range(num_layer):
+            layers.append(nn.Conv2d(hidden_dim, hidden_dim, 1))
+            layers.append(nn.ReLU())
+
+        layers.append(nn.Conv2d(hidden_dim, out_dim, 1))
+        self.layers = nn.Sequential(*layers)
+        
+
+    def encode(self, x):
+        feat = self.encoder(x)
+        coef = self.coef(feat) # coefficient
+        freq = self.freq(feat) # frequency
+
+        #freq_x = torch.stack(torch.split(freq, 2, dim=1), dim=2)[0, 1, :, xx//scale, yy//scale].cpu().numpy()
+        #freq_y = torch.stack(torch.split(freq, 2, dim=1), dim=2)[0, 0, :, xx//scale, yy//scale].cpu().numpy()
+        #mag    = (coef[0, :freq.shape[1]//2, xx//scale, yy//scale]**2 + coef[0, freq.shape[1]//2:, xx//scale, yy//scale]**2).cpu().numpy()
+
+        #separa em x e y
+        freq = torch.stack(torch.split(freq, freq.shape[1]//2, dim=1), dim=2)
+        freq = torch.cat((torch.cos(np.pi*freq), torch.sin(np.pi*freq)), dim=1)
+        # apply coefficeint to basis
+        z = torch.mul(coef, freq)
+
+        return z
+
+    def decode(self, z):
+
+        # basis
+        # shared MLP
+        img = self.layers(z)
+
+        return img
+
